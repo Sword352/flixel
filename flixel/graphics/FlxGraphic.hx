@@ -367,7 +367,16 @@ class FlxGraphic implements IFlxDestroyable
 	 * It is `false` by default, since it significantly increases memory consumption.
 	 */
 	public var unique:Bool = false;
-
+	
+	#if FLX_TRACK_GRAPHICS
+	/**
+	 * **Debug only**
+	 * Any info about the creation or intended usage of this graphic, for debugging purposes
+	 * @since 5.9.0
+	 */
+	public var trackingInfo:String = "";
+	#end
+	
 	/**
 	 * Internal var holding `FlxImageFrame` for the whole bitmap of this graphic.
 	 * Use public `imageFrame` var to access/generate it.
@@ -473,7 +482,7 @@ class FlxGraphic implements IFlxDestroyable
 		key = null;
 		assetsKey = null;
 		assetsClass = null;
-		imageFrame = null; // no need to dispose _imageFrame since it exists in imageFrames
+		imageFrame = FlxDestroyUtil.destroy(imageFrame);
 
 		if (frameCollections == null) // no need to destroy frame collections if it's already null
 			return;
@@ -498,8 +507,11 @@ class FlxGraphic implements IFlxDestroyable
 	{
 		if (collection.type != null)
 		{
-			var collections:Array<Dynamic> = getFramesCollections(collection.type);
-			collections.push(collection);
+			final collections = getFramesCollections(collection.type);
+			if (collections.contains(collection))
+				FlxG.log.warn('Attempting to add already added collection');
+			else
+				collections.push(collection);
 		}
 	}
 
@@ -511,6 +523,12 @@ class FlxGraphic implements IFlxDestroyable
 	 */
 	public inline function getFramesCollections(type:FlxFrameCollectionType):Array<Dynamic>
 	{
+		if (this.isDestroyed)
+		{
+			FlxG.log.warn('Invalid call to getFramesCollections on a destroyed graphic');
+			return [];
+		}
+		
 		var collections:Array<Dynamic> = frameCollections.get(type);
 		if (collections == null)
 		{
@@ -599,7 +617,7 @@ class FlxGraphic implements IFlxDestroyable
 	function get_imageFrame():FlxImageFrame
 	{
 		if (imageFrame == null)
-			imageFrame = FlxImageFrame.fromRectangle(this, FlxRect.get(0, 0, bitmap.width, bitmap.height));
+			imageFrame = FlxImageFrame.fromRectangle(this);
 
 		return imageFrame;
 	}
